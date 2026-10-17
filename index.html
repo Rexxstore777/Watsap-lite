@@ -11,7 +11,6 @@
 </head>
 <body>
 
-<!-- AUTH -->
 <section id="auth-screen" class="auth-screen">
   <div class="auth-panel">
     <div class="brand">
@@ -39,9 +38,7 @@
   </div>
 </section>
 
-<!-- APP -->
 <div id="app" class="app hidden">
-  <!-- SIDEBAR -->
   <aside class="sidebar">
     <header class="sidebar-head">
       <div class="brand">
@@ -61,7 +58,6 @@
     </div>
 
     <div id="search-results" class="list"></div>
-
     <div class="section-label">Online</div>
     <div id="online-list" class="list"></div>
 
@@ -76,7 +72,6 @@
     </footer>
   </aside>
 
-  <!-- CHAT -->
   <main class="chat-panel">
     <div id="chat-empty" class="empty">
       <div class="empty-icon">
@@ -123,7 +118,7 @@
 </div>
 
 <audio id="remote-audio" autoplay></audio>
-<script src="/socket.io/socket.io.js"></script>
+<script src="https://nextalk-production.up.railway.app/socket.io/socket.io.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -1,3 +1,6 @@
+const API_BASE = 'https://nextalk-production.up.railway.app';
+const SOCKET_URL = API_BASE;
+
 let token = localStorage.getItem('nextalk_token');
 let me = localStorage.getItem('nextalk_user');
 let socket = null;
@@ -16,7 +19,7 @@ function initials(name) {
 }
 
 async function api(path, opts = {}) {
-  const res = await fetch(path, {
+  const res = await fetch(`${API_BASE}${path}`, {
     ...opts,
     headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) }
   });
@@ -25,7 +28,6 @@ async function api(path, opts = {}) {
   return data;
 }
 
-/* ---------- AUTH ---------- */
 $('btn-login').onclick = async () => {
   $('auth-error').textContent = '';
   try {
@@ -74,11 +76,12 @@ $('btn-logout').onclick = () => {
   location.reload();
 };
 
-/* ---------- SOCKET ---------- */
 function connectSocket() {
-  socket = io({ auth: { token } });
+  socket = io(SOCKET_URL, { auth: { token }, transports: ['websocket'] });
 
-  socket.on('connect_error', () => { localStorage.clear(); location.reload(); });
+  socket.on('connect_error', (err) => {
+    console.error('Socket error:', err.message);
+  });
   socket.on('presence', (users) => renderOnline(users.filter(u => u !== me)));
 
   socket.on('message', (msg) => {
@@ -107,7 +110,6 @@ function connectSocket() {
   socket.on('call-end', () => endCall());
 }
 
-/* ---------- RENDER LIST ---------- */
 function renderOnline(users) {
   const el = $('online-list');
   el.innerHTML = '';
@@ -130,7 +132,6 @@ function contactRow(username, online) {
   return row;
 }
 
-/* ---------- SEARCH ---------- */
 let searchTimer;
 $('search-input').oninput = (e) => {
   clearTimeout(searchTimer);
@@ -138,7 +139,7 @@ $('search-input').oninput = (e) => {
   const el = $('search-results');
   if (!q) { el.innerHTML = ''; return; }
   searchTimer = setTimeout(async () => {
-    const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+    const res = await fetch(`${API_BASE}/api/search?q=${encodeURIComponent(q)}`);
     const users = await res.json();
     el.innerHTML = '';
     const filtered = users.filter(u => u.username !== me);
@@ -147,7 +148,6 @@ $('search-input').oninput = (e) => {
   }, 220);
 };
 
-/* ---------- CHAT ---------- */
 async function openChat(username) {
   currentChat = username;
   $('chat-empty').classList.add('hidden');
@@ -157,7 +157,7 @@ async function openChat(username) {
   $('chat-status').textContent = 'Online';
   $('messages').innerHTML = '';
 
-  const hist = await (await fetch(`/api/history/${me}/${username}`)).json();
+  const hist = await (await fetch(`${API_BASE}/api/history/${me}/${username}`)).json();
   hist.forEach(renderMessage);
   $('msg-input').focus();
 }
@@ -195,17 +195,17 @@ function sendText() {
 $('btn-send').onclick = sendText;
 $('msg-input').onkeydown = (e) => { if (e.key === 'Enter') sendText(); };
 
-/* ---------- VOICE NOTE ---------- */
 $('btn-record').onclick = async () => {
   if (mediaRecorder && mediaRecorder.state === 'recording') { mediaRecorder.stop(); return; }
   if (!currentChat) return;
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+    const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+    mediaRecorder = new MediaRecorder(stream, { mimeType: mime });
     recChunks = [];
     mediaRecorder.ondataavailable = (e) => { if (e.data.size) recChunks.push(e.data); };
     mediaRecorder.onstop = () => {
-      const blob = new Blob(recChunks, { type: 'audio/webm' });
+      const blob = new Blob(recChunks, { type: mime });
       const reader = new FileReader();
       reader.onload = () => socket.emit('message', { to: currentChat, type: 'audio', content: reader.result });
       reader.readAsDataURL(blob);
@@ -225,7 +225,6 @@ $('btn-record').onclick = async () => {
   } catch { alert('Mikrofon tidak diizinkan.'); }
 };
 
-/* ---------- VOICE CALL ---------- */
 async function setupPeer(remoteUser) {
   const cfg = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
   peer = new RTCPeerConnection(cfg);
@@ -262,5 +261,4 @@ $('btn-end-call').onclick = () => {
   endCall();
 };
 
-/* ---------- AUTO LOGIN ---------- */
 if (token && me) enterApp();
